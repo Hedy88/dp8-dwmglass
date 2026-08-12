@@ -2,13 +2,13 @@
 // symbols usage: symfetch.exe [dwmcore|udwm|all] requires: Windows SDK
 // Debugging Tools (symchk.exe) or internet access for dbghelp
 
+#include <windows.h>
 #include <dbghelp.h>
 #include <shlobj.h>
 #include <shlwapi.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <windows.h>
 
 #pragma comment(lib, "dbghelp.lib")
 #pragma comment(lib, "shlwapi.lib")
