@@ -35,8 +35,10 @@ I wanted something to use for a funny mod to Windows 8.1 that tries to bring the
 
 Builds on Windows (on another VM / machine is fine, tested on LTSC 2021). Requires:
 
-- [Visual Studio 2019 Build Tools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2019) with "Desktop development with C++"
+- [Visual Studio 2019 or 2022 Build Tools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2019) with "Desktop development with C++"
 - [premake5](https://premakedocs.github.io/download.html) - put `premake5.exe` on your `PATH` or in the repo root
+
+> CI (`.github/workflows/build.yml`) builds on a `windows-2022` runner with `premake5 vs2022`.
 
 ## 1. get the code (including dependencies)
 
@@ -54,20 +56,21 @@ git submodule update --init
 ## 2. generate the solution
 
 ```cmd
-premake5 vs2019
+premake5 vs2019     :: for VS2019
+premake5 vs2022     :: for VS2022
 ```
 
 This creates `build\solutions\dp8-dwmglass.sln` (projects: `dp8-dwmglass` DLL, `injector`, `symfetch`).
 
 ## 3. build
 
-From an **x64 Native Tools Command Prompt for VS 2019** (or after calling `vcvars64.bat`):
+From an **x64 Native Tools Command Prompt** (VS 2019 or 2022, or after calling `vcvars64.bat`):
 
 ```cmd
 msbuild build\solutions\dp8-dwmglass.sln /p:Configuration=Release /p:Platform=x64
 ```
 
-or open `build\solutions\dp8-dwmglass.sln` in Visual Studio 2019 and build the Release/x64 configuration.
+or open `build\solutions\dp8-dwmglass.sln` in Visual Studio and build the Release/x64 configuration.
 
 ## 4. output
 

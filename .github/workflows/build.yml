@@ -6,7 +6,7 @@ on:
 
 jobs:
   build:
-    runs-on: windows-2019
+    runs-on: windows-2022
     steps:
       - name: Checkout (with submodules)
         uses: actions/checkout@v4
@@ -21,8 +21,8 @@ jobs:
           Expand-Archive $zip -DestinationPath "$env:RUNNER_TEMP\premake" -Force
           echo "$env:RUNNER_TEMP\premake" | Out-File -Append $env:GITHUB_PATH
 
-      - name: Generate VS2019 solution
-        run: premake5 vs2019
+      - name: Generate VS2022 solution
+        run: premake5 vs2022
 
       - name: Add MSBuild to PATH
         uses: microsoft/setup-msbuild@v3
