@@ -12,23 +12,27 @@ I wanted something to use for a funny mod to Windows 8.1 that tries to bring the
 
 ### what currently works
 
-- MinHook-based IAT hooking
+- MinHook-based inline hooking of DWM render pass (CDrawingContext::DrawVisualTree)
 - Pattern scanner for DWM function location
 - msstyles theme parsing via UxTheme (colors, glass params, frame images)
 - Theme color extraction
 - D3D11 glass renderer with behind-window capture
+- Cached per-frame device resources (no per-frame allocation)
 - Desktop Duplication API + GDI fallback
-- 9-tap Gaussian blur shader (should work)
+- 9-tap Gaussian blur shader
+- Theme frame image compositing (aero.msstyles glass parts 11-14, tinted with the
+  theme accent color) over the blurred glass quad
 - Injector tool
 - Symbol downloader (symfetch)
 
 ### todo
 
 - Multi-pass Gaussian blur (vertical + horizontal)
+- Present the composited glass to an actual output (DWM frame / swap chain)
 - Glass safety zone implementation
 - Caption text glow/shadow rendering
-- Window frame image compositing
-- Per-window glass enable/disable
+- Per-window glass enable/disable (needs window geometry without user32 on the
+  DWM render thread)
 - Debug logging / settings UI
 
 # building

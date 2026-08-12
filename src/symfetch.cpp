@@ -13,7 +13,7 @@
 #pragma comment(lib, "dbghelp.lib")
 #pragma comment(lib, "shlwapi.lib")
 
-#define SYM_STORE L"SRV*%s*https://msdl.microsoft.com/download/symbols"
+#define SYM_STORE L"SRV*%ls*https://msdl.microsoft.com/download/symbols"
 
 static const wchar_t *g_modules[] = {L"dwmcore.dll", L"udwm.dll", nullptr};
 
@@ -33,16 +33,21 @@ static const wchar_t *g_target_symbols[] = {
 
 bool DownloadPDB(const wchar_t *dll_path, wchar_t *pdb_path,
                  DWORD pdb_path_len) {
-  wchar_t symbol_store[MAX_PATH] = {0};
+  wchar_t store_dir[MAX_PATH] = {0};
+  wchar_t symbol_store[MAX_PATH * 2] = {0};
   wchar_t temp_dir[MAX_PATH] = {0};
 
-  GetTempPathW(MAX_PATH, temp_dir);
-  swprintf_s(symbol_store, SYM_STORE, temp_dir);
+  GetTempPathW(ARRAYSIZE(temp_dir), temp_dir);
+  swprintf_s(store_dir, ARRAYSIZE(store_dir), L"%lsdp8-dwmglass-symbols",
+             temp_dir);
+  CreateDirectoryW(store_dir, nullptr);
 
+  swprintf_s(symbol_store, ARRAYSIZE(symbol_store), SYM_STORE, store_dir);
+  printf("Symbol store: %ls\n", symbol_store);
   printf("Downloading symbols for %ls...\n", dll_path);
 
-  if (!SymInitializeW(GetCurrentProcess(), symbol_store, TRUE)) {
-    printf("SymInitialize failed: %d\n", GetLastError());
+  if (!SymInitializeW(GetCurrentProcess(), symbol_store, FALSE)) {
+    printf("SymInitialize failed: %lu\n", GetLastError());
     return false;
   }
 
@@ -50,7 +55,7 @@ bool DownloadPDB(const wchar_t *dll_path, wchar_t *pdb_path,
                                   0, NULL, 0);
 
   if (base == 0) {
-    printf("SymLoadModuleEx failed: %d\n", GetLastError());
+    printf("SymLoadModuleEx failed: %lu\n", GetLastError());
     SymCleanup(GetCurrentProcess());
     return false;
   }
@@ -75,24 +80,22 @@ bool DownloadPDB(const wchar_t *dll_path, wchar_t *pdb_path,
     if (!name)
       return TRUE;
 
-    // check if this is one of our target symbols
+    ULONG *pFound = (ULONG *)Context;
     for (int i = 0; g_target_symbols[i]; i++) {
       if (wcscmp(name, g_target_symbols[i]) == 0) {
         printf("  FOUND: %ls @ 0x%llx (size=%lu)\n", name, pSymInfo->Address,
                SymbolSize);
+        (*pFound)++;
         break;
       }
-    }
-
-    // also print any class methods
-    if (wcsstr(name, L"::") != nullptr) {
-      printf("  CLASS: %ls @ 0x%llx\n", name, pSymInfo->Address);
     }
 
     return TRUE;
   };
 
-  SymEnumSymbolsW(GetCurrentProcess(), base, nullptr, callback, nullptr);
+  ULONG found = 0;
+  SymEnumSymbolsW(GetCurrentProcess(), base, nullptr, callback, &found);
+  printf("  %lu target symbol(s) found\n", found);
 
   SymCleanup(GetCurrentProcess());
   return true;
