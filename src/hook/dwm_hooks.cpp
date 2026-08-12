@@ -3,7 +3,7 @@
 #include "MinHook.h"
 #include "glass_renderer.h"
 #include "logging.h"
-#include "pattern_scan.h"
+#include "symfetch_lib.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -38,6 +38,10 @@ bool DWMHookManager::Initialize() {
     printf("DWMHookManager: MinHook initialization failed\n");
     return false;
   }
+
+  // Route symfetch_lib diagnostics into the glass logger so they land in the
+  // dp8dwmglass.log file alongside everything else.
+  sym::SetLogger(&Log);
 
   m_initialized = true;
   printf("DWMHookManager: Initialized\n");
@@ -76,49 +80,65 @@ bool DWMHookManager::InstallInlineHooks() {
   printf("DWMHookManager: Installing inline hooks...\n");
   Log("DWMHookManager: Installing inline hooks...");
 
+  // rva == 0 means "resolve at install time". A nonzero rva is a pinned
+  // override (hand-derived from a specific build) that skips resolution.
   struct InlineHookDef {
     const wchar_t *module;
-    const wchar_t *pattern;
+    const wchar_t *symbol;
+    DWORD64 rva;
     void *replacement;
     void **original_out;
   };
 
   static const InlineHookDef hook_defs[] = {
-      {L"dwmcore.dll", L"CDrawingContext::DrawVisualTree",
+      {L"dwmcore.dll", L"CDrawingContext::DrawVisualTree", 0,
        (void *)MyDrawVisualTree, (void **)&g_draw_visual_tree_original},
   };
 
   for (const auto &def : hook_defs) {
-    BYTE *found = PatternScan(def.module, def.pattern);
-    if (!found) {
-      printf("DWMHookManager: Failed to locate %ls in %ls\n", def.pattern,
-             def.module);
-      Log("DWMHookManager: PatternScan FAILED for %ls in %ls", def.pattern,
-          def.module);
+    HMODULE module = GetModuleHandleW(def.module);
+    if (!module) {
+      printf("DWMHookManager: %ls not loaded, skipping\n", def.module);
+      Log("DWMHookManager: %ls not loaded, skipping", def.module);
       continue;
     }
-    Log("DWMHookManager: PatternScan ok: %ls at 0x%p", def.pattern, found);
+
+    DWORD64 rva = def.rva;
+    if (rva == 0) {
+      if (!sym::ResolveSymbolRva(def.module, def.symbol, &rva)) {
+        printf("DWMHookManager: failed to resolve %ls!%ls\n", def.module,
+               def.symbol);
+        Log("DWMHookManager: failed to resolve %ls!%ls", def.module,
+            def.symbol);
+        continue;
+      }
+    }
+
+    BYTE *found = (BYTE *)module + rva;
+    Log("DWMHookManager: %ls!%ls -> RVA 0x%llx, target 0x%p", def.module,
+        def.symbol, rva, found);
 
     HookEntry entry = {};
     entry.module_name = def.module;
-    entry.pattern = def.pattern;
+    entry.symbol = def.symbol;
+    entry.rva = rva;
     entry.target = found;
     entry.replacement = def.replacement;
 
     MH_STATUS status = MH_CreateHook(found, def.replacement, &entry.original);
     if (status != MH_OK) {
-      printf("DWMHookManager: MH_CreateHook failed for %ls: %d\n", def.pattern,
-             status);
-      Log("DWMHookManager: MH_CreateHook failed for %ls: %d", def.pattern,
+      printf("DWMHookManager: MH_CreateHook failed for %ls: %d\n",
+             def.symbol, status);
+      Log("DWMHookManager: MH_CreateHook failed for %ls: %d", def.symbol,
           (int)status);
       continue;
     }
 
     status = MH_EnableHook(found);
     if (status != MH_OK) {
-      printf("DWMHookManager: MH_EnableHook failed for %ls: %d\n", def.pattern,
-             status);
-      Log("DWMHookManager: MH_EnableHook failed for %ls: %d", def.pattern,
+      printf("DWMHookManager: MH_EnableHook failed for %ls: %d\n",
+             def.symbol, status);
+      Log("DWMHookManager: MH_EnableHook failed for %ls: %d", def.symbol,
           (int)status);
       MH_RemoveHook(found);
       continue;
@@ -127,8 +147,10 @@ bool DWMHookManager::InstallInlineHooks() {
     *def.original_out = entry.original;
     entry.installed = true;
     m_hooks.push_back(entry);
-    printf("DWMHookManager: Hooked %ls at 0x%p\n", def.pattern, found);
-    Log("DWMHookManager: Hooked %ls at 0x%p", def.pattern, found);
+    printf("DWMHookManager: Hooked %ls at 0x%p (RVA 0x%llx)\n", def.symbol,
+           found, rva);
+    Log("DWMHookManager: Hooked %ls at 0x%p (RVA 0x%llx)", def.symbol, found,
+        rva);
   }
 
   Log("DWMHookManager: InstallInlineHooks done (%d hooks)",

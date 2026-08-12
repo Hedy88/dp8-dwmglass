@@ -6,6 +6,45 @@ workspace "dp8-dwmglass"
 
 outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 
+common_platform = function()
+    filter "system:windows"
+        systemversion "latest"
+
+    filter "configurations:Debug"
+        symbols "On"
+
+    filter "configurations:Release"
+        optimize "Speed"
+        symbols "Off"
+
+    filter { "system:windows", "configurations:Debug" }
+        staticruntime "On"
+
+    filter { "system:windows", "configurations:Release" }
+        staticruntime "On"
+
+    filter {}
+end
+
+project "symfetch_lib"
+    kind "StaticLib"
+    language "C++"
+    cppdialect "C++17"
+
+    targetdir ("build/bin/" .. outputdir)
+    objdir ("build/obj/" .. outputdir .. "/%{prj.name}")
+
+    files {
+        "src/common/symfetch_lib.cpp"
+    }
+
+    includedirs {
+        "include",
+        "include/common"
+    }
+
+    common_platform()
+
 project "dp8-dwmglass"
     kind "SharedLib"
     language "C++"
@@ -15,30 +54,27 @@ project "dp8-dwmglass"
     objdir ("build/obj/" .. outputdir .. "/%{prj.name}")
 
     files {
-        "src/**.cpp",
-        "include/**.h",
+        "src/common/logging.cpp",
+        "src/hook/**.cpp",
         "external/minhook/src/buffer.c",
         "external/minhook/src/hook.c",
         "external/minhook/src/trampoline.c",
         "external/minhook/src/hde/hde64.c"
     }
 
-    removefiles {
-        "src/injector.cpp",
-        "src/symfetch.cpp"
-    }
-
     includedirs {
         "include",
+        "include/common",
+        "include/hook",
         "external/minhook/include",
         "external/minhook/src",
         "external/minhook/src/hde"
     }
 
     links {
+        "symfetch_lib",
         "d3d11",
         "dxgi",
-        "d3dcompiler",
         "dwmapi",
         "gdi32",
         "user32",
@@ -56,21 +92,7 @@ project "dp8-dwmglass"
         "_UNICODE"
     }
 
-    filter "system:windows"
-        systemversion "latest"
-
-    filter "configurations:Debug"
-        symbols "On"
-
-    filter "configurations:Release"
-        optimize "Speed"
-        symbols "Off"
-
-	filter { "system:windows", "configurations:Debug" }
-		staticruntime "On"
-	
-	filter { "system:windows", "configurations:Release" }
-		staticruntime "On"
+    common_platform()
 
 project "injector"
     kind "ConsoleApp"
@@ -81,7 +103,7 @@ project "injector"
     objdir ("build/obj/" .. outputdir .. "/%{prj.name}")
 
     files {
-        "src/injector.cpp"
+        "src/tools/injector.cpp"
     }
 
     includedirs {
@@ -94,20 +116,7 @@ project "injector"
         "psapi"
     }
 
-    filter "system:windows"
-        systemversion "latest"
-
-    filter "configurations:Debug"
-        symbols "On"
-
-    filter "configurations:Release"
-        optimize "Speed"
-
-	filter { "system:windows", "configurations:Debug" }
-		staticruntime "On"
-	
-	filter { "system:windows", "configurations:Release" }
-		staticruntime "On"
+    common_platform()
 
 project "symfetch"
     kind "ConsoleApp"
@@ -118,26 +127,19 @@ project "symfetch"
     objdir ("build/obj/" .. outputdir .. "/%{prj.name}")
 
     files {
-        "src/symfetch.cpp"
+        "src/tools/symfetch.cpp"
+    }
+
+    includedirs {
+        "include",
+        "include/common"
     }
 
     links {
+        "symfetch_lib",
         "dbghelp",
-        "shlwapi",
+        "advapi32",
         "shell32"
     }
 
-    filter "system:windows"
-        systemversion "latest"
-
-    filter "configurations:Debug"
-        symbols "On"
-
-    filter "configurations:Release"
-        optimize "Speed"
-
-	filter { "system:windows", "configurations:Debug" }
-		staticruntime "On"
-	
-	filter { "system:windows", "configurations:Release" }
-		staticruntime "On"
+    common_platform()

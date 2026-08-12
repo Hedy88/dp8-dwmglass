@@ -13,7 +13,8 @@ I wanted something to use for a funny mod to Windows 8.1 that tries to bring the
 ### what currently works
 
 - MinHook-based inline hooking of DWM render pass (CDrawingContext::DrawVisualTree)
-- Pattern scanner for DWM function location
+- Symbol resolution via `symfetch_lib` (DbgHelp + MS symbol server, SHA-1-keyed
+  local cache so hook install never needs the network after a pre-warm run)
 - msstyles theme parsing via UxTheme (colors, glass params, frame images)
 - Theme color extraction
 - D3D11 glass renderer with behind-window capture
@@ -23,7 +24,8 @@ I wanted something to use for a funny mod to Windows 8.1 that tries to bring the
 - Theme frame image compositing (aero.msstyles glass parts 11-14, tinted with the
   theme accent color) over the blurred glass quad
 - Injector tool
-- Symbol downloader (symfetch)
+- Symbol fetcher (`symfetch.exe`) - resolves DWM hook symbols into the
+  `symfetch_lib` cache for offline hook installation
 
 ### todo
 
@@ -64,7 +66,7 @@ premake5 vs2019     :: for VS2019
 premake5 vs2022     :: for VS2022
 ```
 
-This creates `build\solutions\dp8-dwmglass.sln` (projects: `dp8-dwmglass` DLL, `injector`, `symfetch`).
+This creates `build\solutions\dp8-dwmglass.sln` (projects: `symfetch_lib` static lib, `dp8-dwmglass` DLL, `injector`, `symfetch`).
 
 ## 3. build
 

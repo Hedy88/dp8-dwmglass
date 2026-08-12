@@ -12,7 +12,39 @@ using namespace glass;
 
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "dxgi.lib")
-#pragma comment(lib, "d3dcompiler.lib")
+
+namespace {
+
+typedef HRESULT(WINAPI * D3DCompileProc)(
+    LPCVOID pSrcData, SIZE_T SrcDataSize, LPCSTR pSourceName,
+    const D3D_SHADER_MACRO *pDefines, ID3DInclude *pInclude,
+    LPCSTR pEntrypoint, LPCSTR pTarget, UINT Flags1, UINT Flags2,
+    ID3DBlob **ppCode, ID3DBlob **ppErrorMsgs);
+
+// D3DCompile must be loaded at runtime: d3dcompiler_47.dll does not exist on
+// Windows 8/8.1, and a hard import would make LoadLibraryW fail (ERROR_MOD_NOT
+// FOUND) and the whole DLL unload. Fall back to the in-box d3dcompiler_43.dll.
+D3DCompileProc LoadD3DCompile() {
+  static D3DCompileProc proc = []() -> D3DCompileProc {
+    const wchar_t *candidates[] = {L"d3dcompiler_47.dll",
+                                   L"d3dcompiler_43.dll"};
+    for (const wchar_t *name : candidates) {
+      HMODULE mod = LoadLibraryW(name);
+      if (!mod)
+        continue;
+      D3DCompileProc p = (D3DCompileProc)GetProcAddress(mod, "D3DCompile");
+      if (p) {
+        Log("GlassRenderer: D3DCompile from %ls", name);
+        return p;
+      }
+    }
+    Log("GlassRenderer: no d3dcompiler found");
+    return nullptr;
+  }();
+  return proc;
+}
+
+} // namespace
 
 GlassRenderer::GlassRenderer() {}
 
@@ -745,9 +777,13 @@ bool GlassRenderer::CreateShaders() {
   ID3DBlob *ps_blob = nullptr;
   ID3DBlob *error_blob = nullptr;
 
+  D3DCompileProc D3DCompileFn = LoadD3DCompile();
+  if (!D3DCompileFn)
+    return false;
+
   HRESULT hr =
-      D3DCompile(vs_source, strlen(vs_source), nullptr, nullptr, nullptr,
-                 "main", "vs_4_0", 0, 0, &vs_blob, &error_blob);
+      D3DCompileFn(vs_source, strlen(vs_source), nullptr, nullptr, nullptr,
+                   "main", "vs_4_0", 0, 0, &vs_blob, &error_blob);
   if (FAILED(hr)) {
     printf("GlassRenderer: Vertex shader compile failed\n");
     if (error_blob)
@@ -763,8 +799,8 @@ bool GlassRenderer::CreateShaders() {
     return false;
   }
 
-  hr = D3DCompile(ps_source, strlen(ps_source), nullptr, nullptr, nullptr,
-                  "main", "ps_4_0", 0, 0, &ps_blob, &error_blob);
+  hr = D3DCompileFn(ps_source, strlen(ps_source), nullptr, nullptr, nullptr,
+                    "main", "ps_4_0", 0, 0, &ps_blob, &error_blob);
   if (FAILED(hr)) {
     printf("GlassRenderer: Pixel shader compile failed\n");
     vs_blob->Release();

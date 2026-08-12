@@ -131,8 +131,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call,
     DisableThreadLibraryCalls(hModule);
     if (!InitializeGlass()) {
       printf("dp8-dwmglass: Initialization failed\n");
-      Log("DllMain: InitializeGlass FAILED, returning FALSE from DllMain");
-      return FALSE;
+      Log("DllMain: InitializeGlass FAILED, staying resident for debugging");
     }
     break;
 

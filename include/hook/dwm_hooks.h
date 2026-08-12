@@ -8,7 +8,8 @@ namespace glass {
 
 struct HookEntry {
   const wchar_t *module_name;
-  const wchar_t *pattern;
+  const wchar_t *symbol;
+  DWORD64 rva;
   void *target;
   void *replacement;
   void *original;
