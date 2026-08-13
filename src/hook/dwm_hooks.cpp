@@ -38,8 +38,6 @@ bool DWMHookManager::Initialize() {
     return false;
   }
 
-  // Route symfetch_lib diagnostics into the glass logger so they land in the
-  // dp8dwmglass.log file alongside everything else.
   sym::SetLogger(&Log);
 
   m_initialized = true;

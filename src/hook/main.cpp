@@ -17,15 +17,63 @@ static ThemeReader g_theme_reader;
 static msstyles::MsstylesParser g_msstyles_parser;
 
 static bool g_initialized = false;
+static BOOL g_veh_registered = FALSE;
+
+static LONG WINAPI CrashLogger(EXCEPTION_POINTERS *ep);
+
+__declspec(thread) int g_dp8glass_tls_dummy;
+
+extern "C" {
+#pragma section(".CRT$XLB", long, read)
+
+static void NTAPI TlsLoadCallback(PVOID hModule, DWORD reason, PVOID reserved) {
+  if (reason != DLL_PROCESS_ATTACH)
+    return;
+  (void)hModule;
+  (void)reserved;
+
+  if (!g_veh_registered) {
+    AddVectoredExceptionHandler(1, CrashLogger);
+    g_veh_registered = TRUE;
+  }
+
+  HMODULE self = GetModuleHandleW(L"dp8-dwmglass.dll");
+  wchar_t path[MAX_PATH] = {0};
+  if (self && GetModuleFileNameW(self, path, ARRAYSIZE(path))) {
+    wchar_t *slash = wcsrchr(path, L'\\');
+    if (slash) {
+      *(slash + 1) = L'\0';
+      wcscat_s(path, ARRAYSIZE(path), L"dp8dwmglass_crash.log");
+    }
+  } else {
+    wcscpy_s(path, ARRAYSIZE(path),
+             L"C:\\Users\\Public\\dp8dwmglass_crash.log");
+  }
+
+  HANDLE f = CreateFileW(path, FILE_APPEND_DATA, FILE_SHARE_READ, nullptr,
+                         OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+  if (f != INVALID_HANDLE_VALUE) {
+    static const char kMsg[] =
+        "[TLS callback] loader reached TLS stage before entry point\r\n";
+    DWORD written = 0;
+    WriteFile(f, kMsg, sizeof(kMsg) - 1, &written, nullptr);
+    CloseHandle(f);
+  }
+}
+
+__declspec(allocate(".CRT$XLB")) PIMAGE_TLS_CALLBACK g_dp8glass_tls_callback =
+    TlsLoadCallback;
+} // extern "C"
+
+#pragma comment(linker, "/include:__tls_used")
 
 static LONG WINAPI CrashLogger(EXCEPTION_POINTERS *ep) {
   const EXCEPTION_RECORD *er = ep->ExceptionRecord;
 
   char line[256] = {0};
   HMODULE self = GetModuleHandleW(L"dp8-dwmglass.dll");
-  DWORD_PTR offset =
-      self ? (DWORD_PTR)er->ExceptionAddress - (DWORD_PTR)self
-           : (DWORD_PTR)er->ExceptionAddress;
+  DWORD_PTR offset = self ? (DWORD_PTR)er->ExceptionAddress - (DWORD_PTR)self
+                          : (DWORD_PTR)er->ExceptionAddress;
   _snprintf(line, sizeof(line),
             "dp8-dwmglass: exception 0x%08lx at 0x%p (module offset 0x%p) "
             "pid %lu\n",
@@ -39,7 +87,8 @@ static LONG WINAPI CrashLogger(EXCEPTION_POINTERS *ep) {
       *(slash + 1) = L'\0';
     wcscat_s(path, ARRAYSIZE(path), L"dp8dwmglass_crash.log");
   } else {
-    wcscpy_s(path, ARRAYSIZE(path), L"C:\\Users\\Public\\dp8dwmglass_crash.log");
+    wcscpy_s(path, ARRAYSIZE(path),
+             L"C:\\Users\\Public\\dp8dwmglass_crash.log");
   }
 
   HANDLE f = CreateFileW(path, FILE_APPEND_DATA, FILE_SHARE_READ, nullptr,
@@ -169,7 +218,10 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call,
                       LPVOID lpReserved) {
   switch (ul_reason_for_call) {
   case DLL_PROCESS_ATTACH:
-    AddVectoredExceptionHandler(1, CrashLogger);
+    if (!g_veh_registered) {
+      AddVectoredExceptionHandler(1, CrashLogger);
+      g_veh_registered = TRUE;
+    }
     Log("DllMain: DLL_PROCESS_ATTACH");
     Log("dp8-dwmglass: log file: %ls", LogFilePath());
     DisableThreadLibraryCalls(hModule);
@@ -184,6 +236,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call,
       ShutdownGlass();
     }
     RemoveVectoredExceptionHandler(CrashLogger);
+    g_veh_registered = FALSE;
     break;
 
   case DLL_THREAD_ATTACH:
@@ -203,7 +256,8 @@ extern "C" __declspec(dllexport) void __stdcall RunGlass(HWND hwnd) {
   GetWindowRect(hwnd, &window_rect);
 
   RECT glass_rect = {window_rect.left, window_rect.top, window_rect.right,
-                     window_rect.top + g_renderer.GetParams().glass_margins.top};
+                     window_rect.top +
+                         g_renderer.GetParams().glass_margins.top};
   g_renderer.SetGlassRect(glass_rect);
   g_renderer.RenderGlassFrame();
 }

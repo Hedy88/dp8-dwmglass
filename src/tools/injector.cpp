@@ -123,6 +123,39 @@ void LogRemoteError(DWORD code) {
     printf("Injector: remote LoadLibraryW failed, GetLastError=0x%lx\n", code);
 }
 
+// Distinguishes "DLL never mapped into the target" (failure in early image
+// processing) from "DLL mapped but initialization crashed" (module present).
+bool ModuleLoadedIn(DWORD pid, const wchar_t *base_name) {
+  HANDLE hProcess =
+      OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pid);
+  if (!hProcess) {
+    printf("Injector: ModuleLoadedIn: OpenProcess failed (error %d)\n",
+           GetLastError());
+    return false;
+  }
+
+  HMODULE mods[512] = {0};
+  DWORD needed = 0;
+  bool found = false;
+  if (EnumProcessModules(hProcess, mods, sizeof(mods), &needed)) {
+    const DWORD count = needed / sizeof(HMODULE);
+    for (DWORD i = 0; i < count; i++) {
+      wchar_t name[MAX_PATH] = {0};
+      if (GetModuleBaseNameW(hProcess, mods[i], name, ARRAYSIZE(name)) &&
+          _wcsicmp(name, base_name) == 0) {
+        found = true;
+        break;
+      }
+    }
+  } else {
+    printf("Injector: ModuleLoadedIn: EnumProcessModules failed (error %d)\n",
+           GetLastError());
+  }
+
+  CloseHandle(hProcess);
+  return found;
+}
+
 DWORD FindProcessId(const wchar_t *process_name) {
   HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
   if (snapshot == INVALID_HANDLE_VALUE) {
@@ -253,6 +286,15 @@ bool InjectDLL(DWORD pid, const wchar_t *dll_path) {
   if (exit_code == 0) {
     printf("Injector: DLL returned 0 (possible failure)\n");
     LogRemoteError(remote_error);
+    const wchar_t *base = wcsrchr(dll_path, L'\\');
+    base = base ? base + 1 : dll_path;
+    if (ModuleLoadedIn(pid, base))
+      printf("Injector: %ls IS mapped in target (crashed after mapping)\n",
+             base);
+    else
+      printf(
+          "Injector: %ls NOT mapped in target (failed before/at mapping)\n",
+          base);
   } else {
     printf("Injector: DLL loaded successfully (HMODULE=0x%08lx)\n", exit_code);
   }
@@ -297,6 +339,18 @@ int wmain(int argc, wchar_t *argv[]) {
     printf("Injector: DLL not found: %ls\n", dll_path);
     return 1;
   }
+
+  // Resolve to an absolute path: the path is used by LoadLibraryW in the
+  // TARGET process, whose current directory is NOT the injector's.
+  wchar_t dll_full[MAX_PATH] = {0};
+  const DWORD path_len =
+      GetFullPathNameW(dll_path, ARRAYSIZE(dll_full), dll_full, nullptr);
+  if (path_len == 0 || path_len >= ARRAYSIZE(dll_full)) {
+    printf("Injector: GetFullPathNameW failed (error %d)\n", GetLastError());
+    return 1;
+  }
+  dll_path = dll_full;
+  printf("Injector: Resolved DLL path: %ls\n", dll_path);
 
   if (!InjectIntoDWM(dll_path, process_name)) {
     printf("Injector: Injection failed\n");

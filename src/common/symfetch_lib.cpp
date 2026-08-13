@@ -43,10 +43,8 @@ static void Log(const char *fmt, ...) {
   va_end(args);
 }
 
-// ---------------------------------------------------------------------------
 // Local app-data directory via the process token, so this works inside dwm.exe
 // (launched by winlogon, may not inherit USERPROFILE/TEMP).
-// ---------------------------------------------------------------------------
 static bool LocalAppDataDir(wchar_t *out, DWORD out_len) {
   if (SUCCEEDED(SHGetFolderPathW(nullptr, CSIDL_LOCAL_APPDATA, nullptr,
                                  SHGFP_TYPE_CURRENT, out)) &&
@@ -58,9 +56,7 @@ static bool LocalAppDataDir(wchar_t *out, DWORD out_len) {
   return true;
 }
 
-// ---------------------------------------------------------------------------
 // SHA-1 of a file (cache key / build identity guard).
-// ---------------------------------------------------------------------------
 static bool HashFileSha1(const wchar_t *path, BYTE digest[20]) {
   HANDLE hFile =
       CreateFileW(path, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
@@ -96,10 +92,8 @@ static bool HashFileSha1(const wchar_t *path, BYTE digest[20]) {
   return ok;
 }
 
-// ---------------------------------------------------------------------------
 // Symbol cache: one line per entry, tab separated:
 //   <sha1_hex>  <module>  <symbol>  <rva_hex>
-// ---------------------------------------------------------------------------
 static void Sha1ToHex(const BYTE sha1[20], wchar_t *out) {
   static const wchar_t kHex[] = L"0123456789abcdef";
   for (int i = 0; i < 20; i++) {
@@ -153,10 +147,8 @@ static void AddToCache(const wchar_t *cache_path, const BYTE sha1[20],
   fclose(f);
 }
 
-// ---------------------------------------------------------------------------
 // Path of the module file: in-process image if loaded, otherwise the system
 // directory.
-// ---------------------------------------------------------------------------
 static bool ModuleFilePath(const wchar_t *module, wchar_t *out,
                            DWORD out_len) {
   HMODULE hMod = GetModuleHandleW(module);
@@ -176,11 +168,9 @@ static bool ModuleFilePath(const wchar_t *module, wchar_t *out,
   return false;
 }
 
-// ---------------------------------------------------------------------------
 // DbgHelp resolution. `base` is the in-process load address of the module (0
 // if not loaded); dbghelp is told to load at that base so reported addresses
 // map directly, and rva = address - load base either way.
-// ---------------------------------------------------------------------------
 struct ResolveCtx {
   const wchar_t *symbol;
   DWORD64 base;
@@ -250,9 +240,7 @@ static bool ResolveViaDbgHelp(const wchar_t *module_path, DWORD64 base,
   return false;
 }
 
-// ---------------------------------------------------------------------------
 // Public API
-// ---------------------------------------------------------------------------
 bool ResolveSymbolRva(const wchar_t *module, const wchar_t *symbol,
                       DWORD64 *out_rva) {
   if (!module || !symbol || !out_rva)

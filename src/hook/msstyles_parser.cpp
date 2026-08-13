@@ -226,7 +226,7 @@ bool MsstylesParser::ParseImages() {
   if (!m_theme)
     return false;
 
-  // Aero glass window frame is 9-sliced. Explicit MS SDK part ids (Vista+
+  // aero glass window frame is 9-sliced. Explicit MS SDK part ids (Vista+
   // layout) so this is identical across mingw/MSVC headers. Glass variants
   // first, plain frame parts as fallback.
   static const int kGlassParts[] = {11, 12, 13, 14}; // FRAME*GLASS

@@ -44,6 +44,15 @@ D3DCompileProc LoadD3DCompile() {
   return proc;
 }
 
+// Must stay in sync with the HLSL cbuffer in CreateShaders().
+struct GlassConstants {
+  float tint[4];
+  float blur_radius;
+  float opacity;
+  float resolution[2];
+  float padding[2];
+};
+
 } // namespace
 
 GlassRenderer::GlassRenderer() {}
@@ -374,7 +383,7 @@ bool GlassRenderer::DrawQuad(float x, float y, float w, float h, float u0,
   memcpy(mapped.pData, vertices, sizeof(vertices));
   m_context->Unmap(m_dynamic_vertex_buffer, 0);
 
-  UINT stride = sizeof(float) * 4;
+  UINT stride = sizeof(float) * 6; // pos4 + uv2
   UINT offset = 0;
   m_context->IASetVertexBuffers(0, 1, &m_dynamic_vertex_buffer, &stride,
                                 &offset);
@@ -389,14 +398,9 @@ bool GlassRenderer::DrawQuad(float x, float y, float w, float h, float u0,
 
   // Resolution drives the blur sample offset; the blur pass always samples a
   // texture sized to the current output, so m_width/m_height is correct here.
-  struct Constants {
-    float tint[4];
-    float blur_radius;
-    float opacity;
-    float resolution[2];
-    float padding[2];
-  } constants = {{tint[0], tint[1], tint[2], tint[3]}, blur_radius, opacity,
-                 {(float)m_width, (float)m_height}, {0.0f, 0.0f}};
+  GlassConstants constants = {{tint[0], tint[1], tint[2], tint[3]},
+                              blur_radius, opacity,
+                              {(float)m_width, (float)m_height}, {0.0f, 0.0f}};
 
   m_context->UpdateSubresource(m_constant_buffer, 0, nullptr, &constants, 0, 0);
   m_context->PSSetConstantBuffers(0, 1, &m_constant_buffer);
@@ -859,7 +863,7 @@ bool GlassRenderer::CreateShaders() {
   // Dynamic vertex buffer for per-draw quads
   D3D11_BUFFER_DESC dyn_desc = {};
   dyn_desc.Usage = D3D11_USAGE_DYNAMIC;
-  dyn_desc.ByteWidth = sizeof(float) * 4 * 4; // 4 verts * (pos4 + uv2)
+  dyn_desc.ByteWidth = sizeof(float) * 4 * 6; // 4 verts * (pos4 + uv2)
   dyn_desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
   dyn_desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 
@@ -870,11 +874,9 @@ bool GlassRenderer::CreateShaders() {
     return false;
   }
 
-  // Constant buffer
+  // Constant buffer (sizes must be 16-byte multiples in D3D11).
   D3D11_BUFFER_DESC cb_desc = {};
-  cb_desc.ByteWidth =
-      sizeof(float) *
-      8; // 4 for tint, 1 for blur, 1 for opacity, 2 for resolution
+  cb_desc.ByteWidth = ((sizeof(GlassConstants) + 15) / 16) * 16;
   cb_desc.Usage = D3D11_USAGE_DEFAULT;
   cb_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 
