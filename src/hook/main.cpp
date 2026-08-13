@@ -32,6 +32,8 @@ static void NTAPI TlsLoadCallback(PVOID hModule, DWORD reason, PVOID reserved) {
   (void)hModule;
   (void)reserved;
 
+  (void)g_dp8glass_tls_dummy;
+
   if (!g_veh_registered) {
     AddVectoredExceptionHandler(1, CrashLogger);
     g_veh_registered = TRUE;
@@ -65,7 +67,7 @@ __declspec(allocate(".CRT$XLB")) PIMAGE_TLS_CALLBACK g_dp8glass_tls_callback =
     TlsLoadCallback;
 } // extern "C"
 
-#pragma comment(linker, "/include:__tls_used")
+#pragma comment(linker, "/include:g_dp8glass_tls_callback")
 
 static LONG WINAPI CrashLogger(EXCEPTION_POINTERS *ep) {
   const EXCEPTION_RECORD *er = ep->ExceptionRecord;
