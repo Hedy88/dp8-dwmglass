@@ -54,6 +54,11 @@ static void NTAPI TlsLoadCallback(PVOID hModule, DWORD reason, PVOID reserved) {
 
   HANDLE f = CreateFileW(path, FILE_APPEND_DATA, FILE_SHARE_READ, nullptr,
                          OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+  if (f == INVALID_HANDLE_VALUE) {
+    wcscpy_s(path, ARRAYSIZE(path), L"C:\\Users\\Public\\dp8dwmglass_crash.log");
+    f = CreateFileW(path, FILE_APPEND_DATA, FILE_SHARE_READ, nullptr,
+                    OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+  }
   if (f != INVALID_HANDLE_VALUE) {
     static const char kMsg[] =
         "[TLS callback] loader reached TLS stage before entry point\r\n";
