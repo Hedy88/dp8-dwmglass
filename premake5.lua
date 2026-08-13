@@ -6,6 +6,8 @@ workspace "dp8-dwmglass"
 
 outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 
+local w8sdk_dir = _MAIN_SCRIPT_DIR .. "/external/w8.1sdk"
+
 common_platform = function()
     filter "system:windows"
         systemversion "latest"
@@ -140,6 +142,11 @@ project "symfetch"
         "dbghelp",
         "advapi32",
         "shell32"
+    }
+
+    postbuildcommands {
+        "{COPYFILE} \"" .. path.getrelative(project().location, path.join(w8sdk_dir, "dbghelp.dll")) .. "\" \"%{cfg.targetdir}/dbghelp.dll\"",
+        "{COPYFILE} \"" .. path.getrelative(project().location, path.join(w8sdk_dir, "symsrv.dll")) .. "\" \"%{cfg.targetdir}/symsrv.dll\""
     }
 
     common_platform()

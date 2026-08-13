@@ -1,0 +1,1 @@
+symsrv.dll and dbghelp.dll taken from the Windows 8.1 SDK

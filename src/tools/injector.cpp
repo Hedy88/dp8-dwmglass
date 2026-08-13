@@ -1,10 +1,10 @@
 // injector.cpp - DLL injector for dp8-dwmglass testing
+#include <windows.h>
 #include <psapi.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <tlhelp32.h>
-#include <windows.h>
 
 bool IsElevated() {
   HANDLE hToken = nullptr;

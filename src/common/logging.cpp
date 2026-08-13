@@ -59,6 +59,8 @@ void Log(const char *fmt, ...) {
   _vsnprintf(line + n, sizeof(line) - (size_t)n, fmt, args);
   va_end(args);
 
+  printf("%s\n", line);
+
   OutputDebugStringA(line);
   OutputDebugStringA("\n");
 

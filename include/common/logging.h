@@ -4,8 +4,8 @@ namespace glass {
 
 // Append a timestamped line to dp8dwmglass.log (tried in order: %TEMP%, the
 // session user's %LOCALAPPDATA%, then C:\Users\Public). Each line is also
-// mirrored to OutputDebugString so it appears in a debugger / DebugView.
-// printf-style, %ls works for wide strings.
+// printed to stdout and mirrored to OutputDebugString so it appears in a
+// debugger / DebugView. printf-style, %ls works for wide strings.
 void Log(const char *fmt, ...);
 
 } // namespace glass

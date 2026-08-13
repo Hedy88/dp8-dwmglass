@@ -4,7 +4,6 @@
 #include "glass_renderer.h"
 #include "logging.h"
 #include "symfetch_lib.h"
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <windows.h>
@@ -35,7 +34,7 @@ bool DWMHookManager::Initialize() {
     return true;
 
   if (MH_Initialize() != MH_OK) {
-    printf("DWMHookManager: MinHook initialization failed\n");
+    Log("DWMHookManager: MinHook initialization failed");
     return false;
   }
 
@@ -44,7 +43,7 @@ bool DWMHookManager::Initialize() {
   sym::SetLogger(&Log);
 
   m_initialized = true;
-  printf("DWMHookManager: Initialized\n");
+  Log("DWMHookManager: Initialized");
   return true;
 }
 
@@ -56,11 +55,10 @@ void DWMHookManager::Shutdown() {
   MH_Uninitialize();
 
   m_initialized = false;
-  printf("DWMHookManager: Shutdown\n");
+  Log("DWMHookManager: Shutdown");
 }
 
 bool DWMHookManager::InstallHooks() {
-  printf("DWMHookManager: Installing hooks...\n");
   Log("DWMHookManager: Installing hooks...");
   return InstallInlineHooks();
 }
@@ -77,7 +75,6 @@ void DWMHookManager::RemoveHooks() {
 }
 
 bool DWMHookManager::InstallInlineHooks() {
-  printf("DWMHookManager: Installing inline hooks...\n");
   Log("DWMHookManager: Installing inline hooks...");
 
   // rva == 0 means "resolve at install time". A nonzero rva is a pinned
@@ -98,7 +95,6 @@ bool DWMHookManager::InstallInlineHooks() {
   for (const auto &def : hook_defs) {
     HMODULE module = GetModuleHandleW(def.module);
     if (!module) {
-      printf("DWMHookManager: %ls not loaded, skipping\n", def.module);
       Log("DWMHookManager: %ls not loaded, skipping", def.module);
       continue;
     }
@@ -106,8 +102,6 @@ bool DWMHookManager::InstallInlineHooks() {
     DWORD64 rva = def.rva;
     if (rva == 0) {
       if (!sym::ResolveSymbolRva(def.module, def.symbol, &rva)) {
-        printf("DWMHookManager: failed to resolve %ls!%ls\n", def.module,
-               def.symbol);
         Log("DWMHookManager: failed to resolve %ls!%ls", def.module,
             def.symbol);
         continue;
@@ -127,8 +121,6 @@ bool DWMHookManager::InstallInlineHooks() {
 
     MH_STATUS status = MH_CreateHook(found, def.replacement, &entry.original);
     if (status != MH_OK) {
-      printf("DWMHookManager: MH_CreateHook failed for %ls: %d\n",
-             def.symbol, status);
       Log("DWMHookManager: MH_CreateHook failed for %ls: %d", def.symbol,
           (int)status);
       continue;
@@ -136,8 +128,6 @@ bool DWMHookManager::InstallInlineHooks() {
 
     status = MH_EnableHook(found);
     if (status != MH_OK) {
-      printf("DWMHookManager: MH_EnableHook failed for %ls: %d\n",
-             def.symbol, status);
       Log("DWMHookManager: MH_EnableHook failed for %ls: %d", def.symbol,
           (int)status);
       MH_RemoveHook(found);
@@ -147,8 +137,6 @@ bool DWMHookManager::InstallInlineHooks() {
     *def.original_out = entry.original;
     entry.installed = true;
     m_hooks.push_back(entry);
-    printf("DWMHookManager: Hooked %ls at 0x%p (RVA 0x%llx)\n", def.symbol,
-           found, rva);
     Log("DWMHookManager: Hooked %ls at 0x%p (RVA 0x%llx)", def.symbol, found,
         rva);
   }
@@ -163,9 +151,7 @@ DWMHookManager &DWMHookManager::Get() {
   return instance;
 }
 
-// ---------------------------------------------------------------------------
 // Inline hook replacements
-// ---------------------------------------------------------------------------
 
 // CDrawingContext::DrawVisualTree
 // Triggers the glass render for the current frame using cached geometry. No
